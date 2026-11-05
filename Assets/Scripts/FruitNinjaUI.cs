@@ -57,6 +57,7 @@ public class FruitNinjaUI : MonoBehaviour
         EnsureHudPanels();
         StyleButtonShapes();
         StyleCardWood();
+        StyleReferenceScreens();
         EnsureAudioSettings();
         BindSliders();
     }
@@ -120,11 +121,8 @@ public class FruitNinjaUI : MonoBehaviour
         }
         StyleGameModes(cardWidth, cardHeight);
 
-        if (cards.Length > 0 && cards[0] != null)
-        {
-            float menuOffset = wide ? Mathf.Min(width * 0.213333f, (width - cardWidth) * 0.5f - 48f) : 0f;
-            cards[0].anchoredPosition = new Vector2(menuOffset, 0f);
-        }
+        StyleMainMenuLayout(cardWidth, cardHeight, wide);
+        StyleGameOverLayout(cardWidth, wide);
 
         float fruitWidth = Mathf.Min(330f, width * 0.2f);
         float fruitX = -(cardWidth + fruitWidth) * 0.5f - 24f;
@@ -150,8 +148,9 @@ public class FruitNinjaUI : MonoBehaviour
 
     void UpdateBackdropCrop(float aspectRatio)
     {
-        if (menuBackdrop == null || menuBackgroundTexture == null) return;
-        float imageAspect = (float)menuBackgroundTexture.width / menuBackgroundTexture.height;
+        Texture texture = menuBackdrop != null ? menuBackdrop.texture : null;
+        if (texture == null) return;
+        float imageAspect = (float)texture.width / texture.height;
         if (aspectRatio > imageAspect)
         {
             float height = imageAspect / aspectRatio;
@@ -408,6 +407,124 @@ public class FruitNinjaUI : MonoBehaviour
         }
     }
 
+    void StyleReferenceScreens()
+    {
+        for (int i = 0; i < cards.Length; i++)
+        {
+            RectTransform card = cards[i];
+            if (card == null) continue;
+            Image image = card.GetComponent<Image>();
+            Outline outline = card.GetComponent<Outline>();
+            bool parchment = i >= 2;
+            if (image != null)
+            {
+                image.raycastTarget = false;
+                image.sprite = parchment ? roundedButtonSprite : null;
+                image.type = Image.Type.Sliced;
+                image.color = parchment ? new Color(1f, 0.80f, 0.48f, 1f) : new Color(1f, 1f, 1f, 0f);
+            }
+            if (outline != null)
+            {
+                outline.enabled = parchment;
+                outline.effectColor = new Color(0.38f, 0.13f, 0.035f, 0.96f);
+                outline.effectDistance = new Vector2(5f, -5f);
+            }
+            Transform grain = FindChild(card, "Wood Grain");
+            if (grain != null) grain.gameObject.SetActive(false);
+            if (parchment && card.GetComponent<Shadow>() == null)
+            {
+                Shadow shadow = card.gameObject.AddComponent<Shadow>();
+                shadow.effectColor = new Color(0.04f, 0.012f, 0.005f, 0.7f);
+                shadow.effectDistance = new Vector2(0f, -12f);
+            }
+        }
+
+        AddTitleRibbon(cards[1], "GAME MODES", new Color(0.42f, 0.17f, 0.045f, 1f));
+        AddTitleRibbon(cards[2], "SETTINGS", new Color(0.42f, 0.17f, 0.045f, 1f));
+        AddTitleRibbon(cards[3], "HIGH SCORE", new Color(0.42f, 0.17f, 0.045f, 1f));
+        AddTitleRibbon(cards[4], "PAUSE", new Color(0.76f, 0.045f, 0.025f, 1f));
+        if (cards[4] != null)
+            foreach (TMP_Text label in cards[4].GetComponentsInChildren<TMP_Text>(true))
+                if (label.text == "PAUSED") { label.text = "PAUSE"; break; }
+        AddTitleRibbon(cards[5], "GAME OVER", new Color(0.76f, 0.045f, 0.025f, 1f));
+    }
+
+    void AddTitleRibbon(RectTransform card, string title, Color color)
+    {
+        if (card == null || FindChild(card, "Reference Title Ribbon") != null) return;
+        TMP_Text label = null;
+        foreach (TMP_Text candidate in card.GetComponentsInChildren<TMP_Text>(true))
+            if (candidate.text.Contains(title)) { label = candidate; break; }
+        if (label == null) return;
+
+        GameObject ribbon = new GameObject("Reference Title Ribbon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline), typeof(Shadow));
+        ribbon.transform.SetParent(card, false);
+        ribbon.transform.SetAsFirstSibling();
+        ribbon.layer = card.gameObject.layer;
+        RectTransform rect = ribbon.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = label.rectTransform.anchoredPosition;
+        rect.sizeDelta = new Vector2(Mathf.Min(590f, label.rectTransform.sizeDelta.x * 0.86f), label.rectTransform.sizeDelta.y * 0.78f);
+        Image image = ribbon.GetComponent<Image>();
+        image.sprite = roundedButtonSprite;
+        image.type = Image.Type.Sliced;
+        image.color = color;
+        image.raycastTarget = false;
+        Outline outline = ribbon.GetComponent<Outline>();
+        outline.effectColor = new Color(1f, 0.54f, 0.16f, 0.9f);
+        outline.effectDistance = new Vector2(2f, -2f);
+        Shadow shadow = ribbon.GetComponent<Shadow>();
+        shadow.effectColor = new Color(0.04f, 0.01f, 0f, 0.55f);
+        shadow.effectDistance = new Vector2(0f, -7f);
+    }
+
+    void StyleMainMenuLayout(float cardWidth, float cardHeight, bool wide)
+    {
+        if (cards.Length == 0 || cards[0] == null) return;
+        RectTransform card = cards[0];
+        card.anchoredPosition = Vector2.zero;
+        TMP_Text logo = null;
+        foreach (TMP_Text label in mainMenu.GetComponentsInChildren<TMP_Text>(true))
+            if (label.text.Contains("FRUIT") && label.text.Contains("NINJA")) { logo = label; break; }
+        if (logo != null)
+        {
+            logo.rectTransform.anchoredPosition = wide ? new Vector2(-cardWidth * 0.29f, 205f) : new Vector2(0f, cardHeight * 0.31f);
+            logo.rectTransform.sizeDelta = wide ? new Vector2(cardWidth * 0.56f, 300f) : new Vector2(cardWidth * 0.92f, 230f);
+            logo.fontSize = wide ? 104f : 84f;
+        }
+        Transform tagline = FindChild(mainMenu.transform, "Text SLICE • SURVIVE • REPEAT");
+        if (tagline != null) tagline.gameObject.SetActive(false);
+
+        string[] names = { "START Button", "GAME MODES Button", "HIGH SCORE Button", "SETTINGS Button", "QUIT Button" };
+        float width = Mathf.Min(wide ? 500f : 560f, cardWidth * (wide ? 0.62f : 0.86f));
+        float top = wide ? 190f : 55f;
+        float spacing = wide ? 102f : 88f;
+        float x = wide ? cardWidth * 0.29f : 0f;
+        for (int i = 0; i < names.Length; i++)
+        {
+            Transform button = FindChild(mainMenu.transform, names[i]);
+            if (button == null) continue;
+            RectTransform rect = button.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(width, wide ? 78f : 70f);
+            rect.anchoredPosition = new Vector2(x, top - spacing * i);
+        }
+    }
+
+    void StyleGameOverLayout(float cardWidth, bool wide)
+    {
+        if (cards.Length <= 5 || cards[5] == null) return;
+        string[] names = { "PLAY AGAIN Button", "MAIN MENU Button" };
+        for (int i = 0; i < names.Length; i++)
+        {
+            Transform button = FindChild(cards[5], names[i]);
+            if (button == null) continue;
+            RectTransform rect = button.GetComponent<RectTransform>();
+            rect.sizeDelta = wide ? new Vector2(Mathf.Min(390f, cardWidth * 0.48f), 74f) : new Vector2(cardWidth * 0.76f, 68f);
+            rect.anchoredPosition = wide ? new Vector2(i == 0 ? -205f : 205f, -330f) : new Vector2(0f, i == 0 ? -255f : -335f);
+        }
+    }
+
     void StyleButtonShapes()
     {
         if (roundedButtonSprite == null)
@@ -465,6 +582,7 @@ public class FruitNinjaUI : MonoBehaviour
             }
             if (labels.Length > 1)
             {
+                labels[1].text = i == 0 ? "3 mạng, chém bom\nsẽ thua." : i == 1 ? "Giới hạn 60 giây,\nđiểm thưởng cao!" : "Chơi thư giãn,\nkhông có bom.";
                 labels[1].fontSize = detailSize;
                 labels[1].rectTransform.anchoredPosition = new Vector2(0f, -height * 0.12f);
                 labels[1].rectTransform.sizeDelta = new Vector2(width - 24f, height * 0.42f);
@@ -587,7 +705,7 @@ public class FruitNinjaUI : MonoBehaviour
 
     void BuildPause(RectTransform card)
     {
-        Title(card, "PAUSED", 76, new Vector2(0f, 280f), new Vector2(700f, 130f));
+        Title(card, "PAUSE", 76, new Vector2(0f, 280f), new Vector2(700f, 130f));
         Button(card, "RESUME", Green, new Vector2(0f, 126f), game.ResumeGame);
         Button(card, "RESTART", Orange, new Vector2(0f, 10f), game.RestartRun);
         Button(card, "SETTINGS", new Color(0.53f, 0.24f, 0.09f), new Vector2(0f, -106f), OpenPauseSettings);
@@ -705,28 +823,12 @@ public class FruitNinjaUI : MonoBehaviour
     void EnsureHudPanels()
     {
         livesText.rectTransform.anchoredPosition = new Vector2(-220f, -36f);
-        if (FindChild(hud.transform, "HUD Score Panel") != null) return;
-        CreateHudPanel("HUD Score Panel", new Vector2(0f, 1f), new Vector2(16f, -18f), new Vector2(456f, 178f));
-        CreateHudPanel("HUD Timer Panel", new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(292f, 82f));
-        CreateHudPanel("HUD Status Panel", new Vector2(1f, 1f), new Vector2(-12f, -18f), new Vector2(448f, 100f));
-    }
-
-    void CreateHudPanel(string name, Vector2 anchor, Vector2 position, Vector2 size)
-    {
-        GameObject panel = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
-        panel.transform.SetParent(hud.transform, false);
-        panel.layer = hud.layer;
-        RectTransform rect = panel.GetComponent<RectTransform>();
-        rect.anchorMin = rect.anchorMax = rect.pivot = anchor;
-        rect.anchoredPosition = position;
-        rect.sizeDelta = size;
-        Image image = panel.GetComponent<Image>();
-        image.color = new Color(Ink.r, Ink.g, Ink.b, 0.74f);
-        image.raycastTarget = false;
-        Outline outline = panel.GetComponent<Outline>();
-        outline.effectColor = new Color(Orange.r, Orange.g, Orange.b, 0.45f);
-        outline.effectDistance = new Vector2(1f, -1f);
-        panel.transform.SetAsFirstSibling();
+        string[] names = { "HUD Score Panel", "HUD Timer Panel", "HUD Status Panel" };
+        foreach (string name in names)
+        {
+            Transform panel = FindChild(hud.transform, name);
+            if (panel != null) panel.gameObject.SetActive(false);
+        }
     }
 
     RectTransform ChildRect(string name, RectTransform parent, Vector2 min, Vector2 max, Vector2 offsetMin, Vector2 offsetMax)
@@ -850,7 +952,17 @@ public class FruitNinjaUI : MonoBehaviour
 
     void SetScreensVisible(GameObject active)
     {
-        if (menuBackdrop != null) menuBackdrop.gameObject.SetActive(active != null && active != hud);
+        if (menuBackdrop != null)
+        {
+            bool showBackdrop = active != null && active != hud;
+            menuBackdrop.gameObject.SetActive(showBackdrop);
+            if (showBackdrop)
+            {
+                menuBackdrop.texture = active == mainMenu ? menuBackgroundTexture : cardWoodTexture;
+                menuBackdrop.color = active == gameOverMenu ? new Color(0.72f, 0.48f, 0.42f, 1f) : Color.white;
+                UpdateBackdropCrop((float)Screen.width / Mathf.Max(1, Screen.height));
+            }
+        }
         GameObject[] screens = { mainMenu, modesMenu, settingsMenu, highScoreMenu, hud, pauseMenu, gameOverMenu };
         foreach (GameObject screen in screens)
         {
