@@ -7,6 +7,7 @@ using TMPro;
 
 public class FruitNinjaUI : MonoBehaviour
 {
+    static Sprite roundedButtonSprite;
     static readonly Color Ink = new Color(0.045f, 0.018f, 0.012f, 0.98f);
     static readonly Color Cream = new Color(1f, 0.88f, 0.59f, 1f);
     static readonly Color Green = new Color(0.22f, 0.72f, 0.12f, 1f);
@@ -54,6 +55,7 @@ public class FruitNinjaUI : MonoBehaviour
         else BindExistingUI(existingRoot);
         EnsureMenuBackdrop();
         EnsureHudPanels();
+        StyleButtonShapes();
         StyleCardWood();
         EnsureAudioSettings();
         BindSliders();
@@ -403,6 +405,36 @@ public class FruitNinjaUI : MonoBehaviour
             if (card == null) continue;
             foreach (RawImage grain in card.GetComponentsInChildren<RawImage>(true))
                 if (grain.gameObject.name == "Wood Grain") grain.color = new Color(0.30f, 0.12f, 0.045f, 0.20f);
+        }
+    }
+
+    void StyleButtonShapes()
+    {
+        if (roundedButtonSprite == null)
+        {
+            const int size = 64;
+            Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = "Rounded UI Button", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+            Color[] pixels = new Color[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float qx = Mathf.Abs(x + 0.5f - size * 0.5f) - (size * 0.5f - 10f);
+                    float qy = Mathf.Abs(y + 0.5f - size * 0.5f) - (size * 0.5f - 10f);
+                    float distance = Mathf.Sqrt(Mathf.Max(qx, 0f) * Mathf.Max(qx, 0f) + Mathf.Max(qy, 0f) * Mathf.Max(qy, 0f)) + Mathf.Min(Mathf.Max(qx, qy), 0f) - 10f;
+                    float alpha = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-1.25f, 1.25f, distance));
+                    pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+                }
+            texture.SetPixels(pixels);
+            texture.Apply(false, true);
+            roundedButtonSprite = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(18f, 18f, 18f, 18f));
+        }
+
+        foreach (Button button in uiRoot.GetComponentsInChildren<Button>(true))
+        {
+            Image image = button.targetGraphic as Image;
+            if (image == null) continue;
+            image.sprite = roundedButtonSprite;
+            image.type = Image.Type.Sliced;
         }
     }
 
@@ -801,14 +833,15 @@ public class FruitNinjaUI : MonoBehaviour
 
     IEnumerator AnimateScreen(CanvasGroup group, RectTransform card)
     {
-        const float duration = 0.18f;
+        const float duration = 0.28f;
         float elapsed = 0f;
         while (elapsed < duration)
         {
             elapsed += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(elapsed / duration);
+            float linear = Mathf.Clamp01(elapsed / duration);
+            float t = 1f - Mathf.Pow(1f - linear, 3f);
             group.alpha = t;
-            if (card != null) card.localScale = Vector3.one * Mathf.Lerp(0.94f, 1f, t);
+            if (card != null) card.localScale = Vector3.one * Mathf.Lerp(0.96f, 1f, t);
             yield return null;
         }
         group.alpha = 1f;
@@ -875,8 +908,9 @@ public class FruitNinjaUI : MonoBehaviour
 public sealed class ButtonMotion : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler
 {
     Vector3 target = Vector3.one;
+    Vector3 velocity;
 
-    void Update() => transform.localScale = Vector3.Lerp(transform.localScale, target, Time.unscaledDeltaTime * 18f);
+    void Update() => transform.localScale = Vector3.SmoothDamp(transform.localScale, target, ref velocity, 0.09f, Mathf.Infinity, Time.unscaledDeltaTime);
     public void OnPointerEnter(PointerEventData _) => target = Vector3.one * 1.06f;
     public void OnPointerExit(PointerEventData _) => target = Vector3.one;
     public void OnPointerDown(PointerEventData _) => target = Vector3.one * 0.94f;
