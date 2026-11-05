@@ -47,17 +47,25 @@ public class Blade : VanMonoBeha
             StopSlicing();
             return;
         }
+        if (Input.touchCount > 0)
+        {
+            Touch touch = Input.GetTouch(0);
+            if (touch.phase == TouchPhase.Began) StartSlicing(touch.position);
+            else if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled) StopSlicing();
+            else if (slicing) ContinueSlicing(touch.position);
+            return;
+        }
         if (Input.GetMouseButtonDown(0))
         {
-            this.StartSlicing();
+            StartSlicing(Input.mousePosition);
         }
-        else if (Input.GetMouseButtonUp(0)) // khi tha chuot ra
+        else if (Input.GetMouseButtonUp(0))
         {
             this.StopSlicing();
         }
         else if (slicing)
         {
-            this.ContinueSlicing();
+            this.ContinueSlicing(Input.mousePosition);
         }
     }
     private void OnDisable()
@@ -68,9 +76,9 @@ public class Blade : VanMonoBeha
     {
         StopSlicing();
     }
-    void StartSlicing()
+    void StartSlicing(Vector2 screenPosition)
     {
-        Vector3 newPosion = mainCam.ScreenToWorldPoint(Input.mousePosition);
+        Vector3 newPosion = mainCam.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, 0f));
         newPosion.z = 0;
         transform.position = newPosion;
         lastPosition = newPosion;
@@ -91,11 +99,11 @@ public class Blade : VanMonoBeha
 
 
     }
-    void ContinueSlicing()
+    void ContinueSlicing(Vector2 screenPosition)
     {
         Vector3 previousPosition = transform.position;
         lastPosition = previousPosition;
-        Vector3 newPosion  = mainCam.ScreenToWorldPoint(Input.mousePosition); // tiep tuc lay vi tri cua chuot
+        Vector3 newPosion = mainCam.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, 0f));
         newPosion.z = 0;
         direction = newPosion - previousPosition;
         float velocity = direction.magnitude / Time.deltaTime;
