@@ -18,6 +18,8 @@ public class FruitNinjaUI : MonoBehaviour
     GameManager game;
     Blade blade;
     TMP_FontAsset displayFont;
+    Texture2D menuBackgroundTexture;
+    RawImage menuBackdrop;
     [SerializeField] Texture2D menuFruitTexture;
     [SerializeField] Texture2D menuSplashTexture;
     [SerializeField] Texture2D cardWoodTexture;
@@ -46,10 +48,13 @@ public class FruitNinjaUI : MonoBehaviour
         blade = FindAnyObjectByType<Blade>();
         displayFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/Bangers SDF");
         if (displayFont == null) displayFont = TMP_Settings.defaultFontAsset;
+        menuBackgroundTexture = Resources.Load<Texture2D>("UI/MainMenuBackground");
         Transform existingRoot = canvas.transform.Find("FruitNinjaUIRoot");
         if (existingRoot == null) BuildUI();
         else BindExistingUI(existingRoot);
+        EnsureMenuBackdrop();
         EnsureHudPanels();
+        StyleCardWood();
         EnsureAudioSettings();
         BindSliders();
     }
@@ -111,6 +116,7 @@ public class FruitNinjaUI : MonoBehaviour
             if (card == null) continue;
             card.sizeDelta = new Vector2(cardWidth, cardHeight);
         }
+        StyleGameModes(cardWidth, cardHeight);
 
         if (cards.Length > 0 && cards[0] != null)
         {
@@ -120,8 +126,41 @@ public class FruitNinjaUI : MonoBehaviour
 
         float fruitWidth = Mathf.Min(330f, width * 0.2f);
         float fruitX = -(cardWidth + fruitWidth) * 0.5f - 24f;
-        PlaceMenuArtwork("Watermelon Juice", wide, fruitX + 12f, -14f, fruitWidth * 1.25f, -7f);
-        PlaceMenuArtwork("Menu Watermelon", wide, fruitX, -18f, fruitWidth, -14f);
+        PlaceMenuArtwork("Watermelon Juice", wide && menuBackdrop == null, fruitX + 12f, -14f, fruitWidth * 1.25f, -7f);
+        PlaceMenuArtwork("Menu Watermelon", wide && menuBackdrop == null, fruitX, -18f, fruitWidth, -14f);
+        UpdateBackdropCrop(aspectRatio);
+    }
+
+    void EnsureMenuBackdrop()
+    {
+        if (menuBackgroundTexture == null) return;
+        Transform existing = FindChild(uiRoot, "MainMenuBackdrop");
+        GameObject backdrop = existing != null ? existing.gameObject : new GameObject("MainMenuBackdrop", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+        if (existing == null) backdrop.transform.SetParent(uiRoot, false);
+        backdrop.layer = uiRoot.gameObject.layer;
+        Stretch(backdrop.GetComponent<RectTransform>());
+        menuBackdrop = backdrop.GetComponent<RawImage>();
+        menuBackdrop.texture = menuBackgroundTexture;
+        menuBackdrop.color = Color.white;
+        menuBackdrop.raycastTarget = false;
+        backdrop.transform.SetAsFirstSibling();
+    }
+
+    void UpdateBackdropCrop(float aspectRatio)
+    {
+        if (menuBackdrop == null || menuBackgroundTexture == null) return;
+        float imageAspect = (float)menuBackgroundTexture.width / menuBackgroundTexture.height;
+        if (aspectRatio > imageAspect)
+        {
+            float height = imageAspect / aspectRatio;
+            menuBackdrop.uvRect = new Rect(0f, (1f - height) * 0.5f, 1f, height);
+        }
+        else
+        {
+            float width = aspectRatio / imageAspect;
+            float x = aspectRatio < 1f ? 0f : (1f - width) * 0.5f;
+            menuBackdrop.uvRect = new Rect(x, 0f, width, 1f);
+        }
     }
 
     void PlaceMenuArtwork(string name, bool visible, float x, float y, float width, float rotation)
@@ -351,10 +390,54 @@ public class FruitNinjaUI : MonoBehaviour
             Stretch(grain.GetComponent<RectTransform>());
             RawImage woodImage = grain.GetComponent<RawImage>();
             woodImage.texture = cardWoodTexture;
-            woodImage.color = new Color(0.62f, 0.32f, 0.12f, 0.35f);
+            woodImage.color = new Color(0.30f, 0.12f, 0.045f, 0.20f);
             woodImage.raycastTarget = false;
         }
         return screen;
+    }
+
+    void StyleCardWood()
+    {
+        foreach (RectTransform card in cards)
+        {
+            if (card == null) continue;
+            foreach (RawImage grain in card.GetComponentsInChildren<RawImage>(true))
+                if (grain.gameObject.name == "Wood Grain") grain.color = new Color(0.30f, 0.12f, 0.045f, 0.20f);
+        }
+    }
+
+    void StyleGameModes(float cardWidth, float cardHeight)
+    {
+        string[] names = { "CLASSIC Button", "ARCADE Button", "ZEN Button" };
+        float width = Mathf.Min(220f, (cardWidth - 64f) / 3f);
+        float spacing = width + 20f;
+        float height = Mathf.Min(270f, cardHeight * 0.34f);
+        float labelSize = Mathf.Clamp(width * 0.17f, 22f, 38f);
+        float detailSize = Mathf.Clamp(width * 0.095f, 15f, 22f);
+        for (int i = 0; i < names.Length; i++)
+        {
+            Transform item = FindChild(modesMenu.transform, names[i]);
+            if (item == null) continue;
+            RectTransform rect = item.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(width, height);
+            rect.anchoredPosition = new Vector2((i - 1) * spacing, 8f);
+            Image image = item.GetComponent<Image>();
+            Outline outline = item.GetComponent<Outline>();
+            if (image != null && outline != null) outline.effectColor = Color.Lerp(image.color, Color.white, 0.45f);
+            TMP_Text[] labels = item.GetComponentsInChildren<TMP_Text>(true);
+            if (labels.Length > 0)
+            {
+                labels[0].fontSize = labelSize;
+                labels[0].rectTransform.anchoredPosition = new Vector2(0f, height * 0.22f);
+                labels[0].rectTransform.sizeDelta = new Vector2(width - 16f, 58f);
+            }
+            if (labels.Length > 1)
+            {
+                labels[1].fontSize = detailSize;
+                labels[1].rectTransform.anchoredPosition = new Vector2(0f, -height * 0.12f);
+                labels[1].rectTransform.sizeDelta = new Vector2(width - 24f, height * 0.42f);
+            }
+        }
     }
 
     void CreateMenuArtwork(Transform parent)
@@ -734,6 +817,7 @@ public class FruitNinjaUI : MonoBehaviour
 
     void SetScreensVisible(GameObject active)
     {
+        if (menuBackdrop != null) menuBackdrop.gameObject.SetActive(active != null && active != hud);
         GameObject[] screens = { mainMenu, modesMenu, settingsMenu, highScoreMenu, hud, pauseMenu, gameOverMenu };
         foreach (GameObject screen in screens)
         {
