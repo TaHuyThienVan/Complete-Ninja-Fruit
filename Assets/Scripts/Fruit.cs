@@ -31,14 +31,21 @@ public class Fruit : VanMonoBeha
     {
         specialType = type;
         bossHitsRemaining = bossHits;
+        if (type == FruitSpecialType.Fake) transform.localScale *= 0.78f;
         if (type == FruitSpecialType.Normal || whole == null) return;
         Color tint = type == FruitSpecialType.Golden ? new Color(1f, 0.78f, 0.2f) :
                      type == FruitSpecialType.Frozen ? new Color(0.45f, 0.9f, 1f) :
                      type == FruitSpecialType.Bonus ? new Color(0.6f, 1f, 0.45f) :
-                     type == FruitSpecialType.Fake ? new Color(0.52f, 0.52f, 0.58f) :
+                     type == FruitSpecialType.Fake ? new Color(0.92f, 0.22f, 0.86f) :
                      new Color(1f, 0.45f, 0.18f);
         MaterialPropertyBlock block = new MaterialPropertyBlock();
-        foreach (Renderer renderer in whole.GetComponentsInChildren<Renderer>(true))
+        ApplyTint(whole, tint, block);
+        if (type == FruitSpecialType.Fake && sliced != null) ApplyTint(sliced, tint, block);
+    }
+
+    static void ApplyTint(GameObject target, Color tint, MaterialPropertyBlock block)
+    {
+        foreach (Renderer renderer in target.GetComponentsInChildren<Renderer>(true))
         {
             renderer.GetPropertyBlock(block);
             block.SetColor("_BaseColor", tint);
