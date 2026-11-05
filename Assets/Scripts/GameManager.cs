@@ -215,6 +215,8 @@ public class GameManager : Singleton<GameManager>
         AdvanceProgression();
         UpdateScoreText();
         if (ui != null) ui.RefreshHud();
+        if (ui != null && (combo == 3 || combo == 5 || combo == 8 || combo == 10 || (combo >= 15 && combo % 5 == 0)))
+            ui.PlayComboCelebration(combo);
     }
 
     void AdvanceProgression()

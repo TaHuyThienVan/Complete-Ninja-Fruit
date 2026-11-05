@@ -36,6 +36,16 @@ public class FruitNinjaUI : MonoBehaviour
     TMP_Text masterValue, muteLabel;
     int lastDisplayedScore = -1;
     Coroutine scorePulse;
+    Coroutine comboCelebration;
+    RectTransform celebrationRoot;
+    RectTransform celebrationTitle;
+    CanvasGroup celebrationGroup;
+    TMP_Text celebrationText;
+    RawImage celebrationFlash;
+    RawImage[] celebrationImages;
+    RectTransform[] celebrationConfetti;
+    Vector2[] celebrationDirections;
+    Color[] celebrationColors = { Cream, new Color(1f, 0.36f, 0.08f), new Color(0.3f, 0.9f, 0.18f), Color.white };
     RectTransform menuFruitArtwork, menuSplashArtwork;
     Vector2 menuFruitPosition, menuSplashPosition;
     float menuFruitRotation, menuSplashRotation;
@@ -55,6 +65,7 @@ public class FruitNinjaUI : MonoBehaviour
         else BindExistingUI(existingRoot);
         EnsureMenuBackdrop();
         EnsureHudPanels();
+        BuildComboCelebration();
         StyleButtonShapes();
         StyleCardWood();
         StyleReferenceScreens();
@@ -701,6 +712,102 @@ public class FruitNinjaUI : MonoBehaviour
         eventText = AnchoredText(parent, "EVENT", 42, new Color(1f, 0.78f, 0.26f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 145f), new Vector2(900f, 76f), TextAlignmentOptions.Center);
         eventText.enabled = false;
         Button(parent, "II", new Color(0.68f, 0.24f, 0.06f), new Vector2(-52f, -42f), game.PauseGame, 68f, new Vector2(82f, 70f), new Vector2(1f, 1f));
+    }
+
+    void BuildComboCelebration()
+    {
+        GameObject root = new GameObject("Combo Celebration", typeof(RectTransform), typeof(CanvasGroup));
+        root.transform.SetParent(hud.transform, false);
+        root.layer = hud.layer;
+        celebrationRoot = root.GetComponent<RectTransform>();
+        Stretch(celebrationRoot);
+        celebrationGroup = root.GetComponent<CanvasGroup>();
+        celebrationGroup.interactable = false;
+        celebrationGroup.blocksRaycasts = false;
+
+        GameObject flash = new GameObject("Celebration Flash", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+        flash.transform.SetParent(root.transform, false);
+        flash.layer = root.layer;
+        celebrationFlash = flash.GetComponent<RawImage>();
+        celebrationFlash.texture = Texture2D.whiteTexture;
+        celebrationFlash.raycastTarget = false;
+        Stretch(flash.GetComponent<RectTransform>());
+
+        celebrationTitle = new GameObject("Celebration Title", typeof(RectTransform)).GetComponent<RectTransform>();
+        celebrationTitle.SetParent(root.transform, false);
+        celebrationTitle.gameObject.layer = root.layer;
+        celebrationTitle.sizeDelta = new Vector2(900f, 150f);
+        celebrationText = celebrationTitle.gameObject.AddComponent<TextMeshProUGUI>();
+        celebrationText.font = displayFont;
+        celebrationText.fontSize = 86f;
+        celebrationText.fontStyle = FontStyles.Bold;
+        celebrationText.alignment = TextAlignmentOptions.Center;
+        celebrationText.color = Cream;
+        celebrationText.outlineColor = new Color(0.42f, 0.08f, 0.015f, 1f);
+        celebrationText.outlineWidth = 0.28f;
+        celebrationText.raycastTarget = false;
+
+        celebrationConfetti = new RectTransform[20];
+        celebrationImages = new RawImage[celebrationConfetti.Length];
+        celebrationDirections = new Vector2[celebrationConfetti.Length];
+        for (int i = 0; i < celebrationConfetti.Length; i++)
+        {
+            GameObject piece = new GameObject("Confetti", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+            piece.transform.SetParent(root.transform, false);
+            piece.layer = root.layer;
+            RectTransform rect = piece.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(i % 3 == 0 ? 11f : 7f, i % 2 == 0 ? 17f : 10f);
+            RawImage image = piece.GetComponent<RawImage>();
+            image.texture = Texture2D.whiteTexture;
+            image.color = celebrationColors[i % celebrationColors.Length];
+            image.raycastTarget = false;
+            celebrationConfetti[i] = rect;
+            celebrationImages[i] = image;
+            float angle = (i * 137.5f + 8f) * Mathf.Deg2Rad;
+            celebrationDirections[i] = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+        }
+        root.SetActive(false);
+    }
+
+    public void PlayComboCelebration(int combo)
+    {
+        if (celebrationRoot == null) return;
+        celebrationText.text = combo >= 25 ? "UNSTOPPABLE!" : combo >= 15 ? "LEGENDARY!" :
+                               combo >= 10 ? "ON FIRE!" : combo >= 8 ? "AMAZING!" :
+                               combo >= 5 ? "AWESOME!" : "NICE!";
+        if (comboCelebration != null) StopCoroutine(comboCelebration);
+        comboCelebration = StartCoroutine(AnimateComboCelebration());
+    }
+
+    IEnumerator AnimateComboCelebration()
+    {
+        celebrationRoot.gameObject.SetActive(true);
+        celebrationGroup.alpha = 1f;
+        celebrationFlash.color = new Color(1f, 0.72f, 0.25f, 0f);
+        celebrationTitle.localScale = Vector3.one * 0.65f;
+        float elapsed = 0f;
+        while (elapsed < 0.95f)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float pop = Mathf.Clamp01(elapsed / 0.2f);
+            celebrationTitle.localScale = Vector3.one * (0.65f + Mathf.Sin(pop * Mathf.PI * 0.5f) * 0.55f - pop * 0.2f);
+            celebrationFlash.color = new Color(1f, 0.72f, 0.25f, (1f - Mathf.Clamp01(elapsed / 0.16f)) * 0.11f);
+            float travel = Mathf.Lerp(30f, 470f, 1f - Mathf.Exp(-elapsed * 4.2f));
+            float fade = 1f - Mathf.Clamp01((elapsed - 0.3f) / 0.65f);
+            celebrationGroup.alpha = elapsed < 0.55f ? 1f : 1f - Mathf.InverseLerp(0.55f, 0.95f, elapsed);
+            for (int i = 0; i < celebrationConfetti.Length; i++)
+            {
+                RectTransform piece = celebrationConfetti[i];
+                piece.anchoredPosition = celebrationDirections[i] * travel + Vector2.down * (elapsed * elapsed * 155f);
+                piece.localRotation = Quaternion.Euler(0f, 0f, elapsed * (i % 2 == 0 ? 520f : -440f));
+                piece.localScale = Vector3.one * Mathf.Lerp(1f, 0.15f, 1f - fade);
+                celebrationImages[i].color = new Color(celebrationColors[i % celebrationColors.Length].r,
+                    celebrationColors[i % celebrationColors.Length].g, celebrationColors[i % celebrationColors.Length].b, fade);
+            }
+            yield return null;
+        }
+        celebrationRoot.gameObject.SetActive(false);
+        comboCelebration = null;
     }
 
     void BuildPause(RectTransform card)
