@@ -2515,10 +2515,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   fruitPrefabs:
   - {fileID: 469703048827170151, guid: c308d36b55e001140bc250c4adf1c2f4, type: 3}
-  - {fileID: 4665021690893771956, guid: c80c81ae0995cfd448c05884a1aee727, type: 3}
+  - {fileID: 5836177610420257341, guid: 54d2e71875bb09d4fa74c9e1349c4891, type: 3}
   - {fileID: 7897574207287275542, guid: 4179c2ac0ba5c0a4891471934d4dd7ad, type: 3}
   - {fileID: 2057169206081441129, guid: caacee40fad99bf448058d32cbf4002e, type: 3}
   - {fileID: 8900165417925301922, guid: f114644f944201a469b2679dbac37489, type: 3}
+  - {fileID: 4665021690893771956, guid: c80c81ae0995cfd448c05884a1aee727, type: 3}
   boomPrefab: {fileID: 8749889065154936870, guid: 5d493010355d1ef439b732dc38d9ec24, type: 3}
   minSpawndelay: 0.25
   maxSpawndelay: 1

@@ -77,12 +77,16 @@ public class Spawner : Singleton<Spawner>
                 lastSpawnWasBomb = isBomb;
                 SpawnOne(prefab, 1f, isBomb, isBomb ? FruitSpecialType.Normal : ChooseSpecial());
 
-                if (stage >= 2 && Time.time >= nextEventTime)
+                if (Time.time >= nextEventTime)
                 {
-                    game.StartFruitRush(3f);
-                    SpawnOne(fruitPrefabs[Random.Range(0, fruitPrefabs.Length)], 1.15f, false, ChooseSpecial());
-                    SpawnOne(fruitPrefabs[Random.Range(0, fruitPrefabs.Length)], 1.15f, false, ChooseSpecial());
-                    nextEventTime = Time.time + Random.Range(18f, 26f);
+                    bool arcade = game.Mode == FruitGameMode.Arcade;
+                    bool zen = game.Mode == FruitGameMode.Zen;
+                    int waveSize = arcade ? 4 : 3;
+                    float launchForce = arcade ? 1.08f : zen ? 0.88f : 1f;
+                    if (!zen) game.StartFruitRush(3f);
+                    for (int i = 0; i < waveSize; i++)
+                        SpawnOne(fruitPrefabs[Random.Range(0, fruitPrefabs.Length)], launchForce, false, ChooseSpecial());
+                    nextEventTime = Time.time + (arcade ? Random.Range(13f, 17f) : zen ? Random.Range(15f, 20f) : Random.Range(18f, 24f));
                 }
             }
 
@@ -142,10 +146,10 @@ public class Spawner : Singleton<Spawner>
     FruitSpecialType ChooseSpecial()
     {
         float roll = Random.value;
-        if (roll < 0.025f) return FruitSpecialType.Golden;
-        if (roll < 0.05f) return FruitSpecialType.Frozen;
-        if (roll < 0.075f) return FruitSpecialType.Bonus;
-        if (roll < 0.095f) return FruitSpecialType.Fake;
+        if (roll < 0.06f) return FruitSpecialType.Golden;
+        if (roll < 0.12f) return FruitSpecialType.Frozen;
+        if (roll < 0.18f) return FruitSpecialType.Bonus;
+        if (GameManager.instance.Mode != FruitGameMode.Zen && roll < 0.22f) return FruitSpecialType.Fake;
         return FruitSpecialType.Normal;
     }
 
