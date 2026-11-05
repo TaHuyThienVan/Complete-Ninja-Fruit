@@ -251,7 +251,7 @@ public class FruitNinjaUI : MonoBehaviour
         sfxValue = TextOccurrence(FindChild(settingsMenu.transform, "Settings Card"), "Text 70%", 1);
         sensitivityValue = TextOccurrence(FindChild(settingsMenu.transform, "Settings Card"), "Text 70%", 2);
 
-        BindButton(mainMenu.transform, "START Button", StartModes);
+        BindButton(mainMenu.transform, "START Button", () => game.BeginGame(FruitGameMode.Classic));
         BindButton(mainMenu.transform, "GAME MODES Button", StartModes);
         BindButton(mainMenu.transform, "HIGH SCORE Button", ShowHighScore);
         BindButton(mainMenu.transform, "SETTINGS Button", OpenMainSettings);
@@ -623,7 +623,7 @@ public class FruitNinjaUI : MonoBehaviour
     {
         Title(card, "<color=#FFB51B>FRUIT</color>\n<color=#FFF4DF>NINJA</color>", 96, new Vector2(0f, 295f), new Vector2(700f, 230f));
         Text(card, "SLICE • SURVIVE • REPEAT", 24, Cream, new Vector2(0f, 190f), new Vector2(680f, 52f), false);
-        Button(card, "START", Green, new Vector2(0f, 86f), StartModes);
+        Button(card, "START", Green, new Vector2(0f, 86f), () => game.BeginGame(FruitGameMode.Classic));
         Button(card, "GAME MODES", Purple, new Vector2(0f, -30f), StartModes);
         Button(card, "HIGH SCORE", new Color(0.81f, 0.35f, 0.08f), new Vector2(0f, -146f), ShowHighScore);
         Button(card, "SETTINGS", new Color(0.48f, 0.20f, 0.09f), new Vector2(0f, -262f), OpenMainSettings);
