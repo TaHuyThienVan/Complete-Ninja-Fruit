@@ -31,6 +31,11 @@ public class FruitNinjaUI : MonoBehaviour
     int layoutScreenWidth = -1, layoutScreenHeight = -1;
     Slider masterSlider;
     TMP_Text masterValue, muteLabel;
+    int lastDisplayedScore = -1;
+    Coroutine scorePulse;
+    RectTransform menuFruitArtwork, menuSplashArtwork;
+    Vector2 menuFruitPosition, menuSplashPosition;
+    float menuFruitRotation, menuSplashRotation;
 
     void Awake()
     {
@@ -44,6 +49,7 @@ public class FruitNinjaUI : MonoBehaviour
         Transform existingRoot = canvas.transform.Find("FruitNinjaUIRoot");
         if (existingRoot == null) BuildUI();
         else BindExistingUI(existingRoot);
+        EnsureHudPanels();
         EnsureAudioSettings();
         BindSliders();
     }
@@ -57,6 +63,7 @@ public class FruitNinjaUI : MonoBehaviour
         layoutScreenWidth = Screen.width;
         layoutScreenHeight = Screen.height;
         ApplyResponsiveLayout(uiRoot.rect.width, (float)Screen.width / Mathf.Max(1, Screen.height));
+        CacheMenuArtwork();
     }
 
     void Update()
@@ -67,11 +74,30 @@ public class FruitNinjaUI : MonoBehaviour
             layoutScreenHeight = Screen.height;
             Canvas.ForceUpdateCanvases();
             ApplyResponsiveLayout(uiRoot.rect.width, (float)Screen.width / Mathf.Max(1, Screen.height));
+            CacheMenuArtwork();
         }
+        AnimateMenuArtwork(menuFruitArtwork, menuFruitPosition, menuFruitRotation, 0f, 7f, 1.1f);
+        AnimateMenuArtwork(menuSplashArtwork, menuSplashPosition, menuSplashRotation, 1.4f, 10f, 0.8f);
         if (game != null && game.IsGameRunning && Input.GetKeyDown(KeyCode.Escape))
         {
             if (game.Mode != FruitGameMode.Zen || game.IsPaused) game.TogglePause();
         }
+    }
+
+    void CacheMenuArtwork()
+    {
+        menuFruitArtwork = FindChild(mainMenu.transform, "Menu Watermelon") as RectTransform;
+        menuSplashArtwork = FindChild(mainMenu.transform, "Watermelon Juice") as RectTransform;
+        if (menuFruitArtwork != null) { menuFruitPosition = menuFruitArtwork.anchoredPosition; menuFruitRotation = menuFruitArtwork.localEulerAngles.z; }
+        if (menuSplashArtwork != null) { menuSplashPosition = menuSplashArtwork.anchoredPosition; menuSplashRotation = menuSplashArtwork.localEulerAngles.z; }
+    }
+
+    static void AnimateMenuArtwork(RectTransform artwork, Vector2 position, float rotation, float phase, float amplitude, float speed)
+    {
+        if (artwork == null || !artwork.gameObject.activeInHierarchy) return;
+        float wave = Mathf.Sin(Time.unscaledTime * speed + phase);
+        artwork.anchoredPosition = position + Vector2.up * (wave * amplitude);
+        artwork.localRotation = Quaternion.Euler(0f, 0f, rotation + wave * 2f);
     }
 
     void ApplyResponsiveLayout(float width, float aspectRatio)
@@ -232,6 +258,7 @@ public class FruitNinjaUI : MonoBehaviour
 
     void AddHoverSound(Button button)
     {
+        if (button.GetComponent<ButtonMotion>() == null) button.gameObject.AddComponent<ButtonMotion>();
         EventTrigger trigger = button.GetComponent<EventTrigger>();
         if (trigger == null) trigger = button.gameObject.AddComponent<EventTrigger>();
         if (trigger.triggers == null) trigger.triggers = new System.Collections.Generic.List<EventTrigger.Entry>();
@@ -560,6 +587,33 @@ public class FruitNinjaUI : MonoBehaviour
         image.raycastTarget = raycast;
     }
 
+    void EnsureHudPanels()
+    {
+        livesText.rectTransform.anchoredPosition = new Vector2(-220f, -36f);
+        if (FindChild(hud.transform, "HUD Score Panel") != null) return;
+        CreateHudPanel("HUD Score Panel", new Vector2(0f, 1f), new Vector2(16f, -18f), new Vector2(456f, 178f));
+        CreateHudPanel("HUD Timer Panel", new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(292f, 82f));
+        CreateHudPanel("HUD Status Panel", new Vector2(1f, 1f), new Vector2(-12f, -18f), new Vector2(448f, 100f));
+    }
+
+    void CreateHudPanel(string name, Vector2 anchor, Vector2 position, Vector2 size)
+    {
+        GameObject panel = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+        panel.transform.SetParent(hud.transform, false);
+        panel.layer = hud.layer;
+        RectTransform rect = panel.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = rect.pivot = anchor;
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+        Image image = panel.GetComponent<Image>();
+        image.color = new Color(Ink.r, Ink.g, Ink.b, 0.74f);
+        image.raycastTarget = false;
+        Outline outline = panel.GetComponent<Outline>();
+        outline.effectColor = new Color(Orange.r, Orange.g, Orange.b, 0.45f);
+        outline.effectDistance = new Vector2(1f, -1f);
+        panel.transform.SetAsFirstSibling();
+    }
+
     RectTransform ChildRect(string name, RectTransform parent, Vector2 min, Vector2 max, Vector2 offsetMin, Vector2 offsetMax)
     {
         GameObject go = new GameObject(name, typeof(RectTransform));
@@ -598,6 +652,13 @@ public class FruitNinjaUI : MonoBehaviour
     public void RefreshHud()
     {
         if (game == null || scoreText == null) return;
+        if (lastDisplayedScore >= 0 && game.Score != lastDisplayedScore)
+        {
+            if (scorePulse != null) StopCoroutine(scorePulse);
+            scoreText.rectTransform.localScale = Vector3.one;
+            if (game.Score > lastDisplayedScore) scorePulse = StartCoroutine(PulseScore());
+        }
+        lastDisplayedScore = game.Score;
         scoreText.text = "SCORE  " + game.Score.ToString("N0");
         comboText.text = game.Combo > 1 ? "COMBO  x" + game.Combo : string.Empty;
         livesText.text = game.Mode == FruitGameMode.Zen ? "∞" : "♥ × " + Mathf.Max(0, game.Lives).ToString();;
@@ -616,6 +677,18 @@ public class FruitNinjaUI : MonoBehaviour
     }
 
     int ElapsedTime() => game == null ? 0 : game.ElapsedSeconds;
+
+    IEnumerator PulseScore()
+    {
+        float elapsed = 0f;
+        while (elapsed < 0.22f)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            scoreText.rectTransform.localScale = Vector3.one * (1f + 0.18f * Mathf.Sin(Mathf.Clamp01(elapsed / 0.22f) * Mathf.PI));
+            yield return null;
+        }
+        scoreText.rectTransform.localScale = Vector3.one;
+    }
 
     void ShowHighScore()
     {
@@ -712,4 +785,16 @@ public class FruitNinjaUI : MonoBehaviour
 
     void SaveSettings() { PlayerPrefs.Save(); if (FruitNinjaAudio.Instance != null) FruitNinjaAudio.Instance.SavePreferences(); }
     static string Percent(float value) => Mathf.RoundToInt(value * 100f) + "%";
+}
+
+[AddComponentMenu("")]
+public sealed class ButtonMotion : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler
+{
+    Vector3 target = Vector3.one;
+
+    void Update() => transform.localScale = Vector3.Lerp(transform.localScale, target, Time.unscaledDeltaTime * 18f);
+    public void OnPointerEnter(PointerEventData _) => target = Vector3.one * 1.06f;
+    public void OnPointerExit(PointerEventData _) => target = Vector3.one;
+    public void OnPointerDown(PointerEventData _) => target = Vector3.one * 0.94f;
+    public void OnPointerUp(PointerEventData _) => target = Vector3.one * 1.06f;
 }

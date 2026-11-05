@@ -42,6 +42,11 @@ public class Blade : VanMonoBeha
     }
     void HandleMouse()
     {
+        if (GameManager.instance == null || !GameManager.instance.IsGameRunning || GameManager.instance.IsPaused)
+        {
+            StopSlicing();
+            return;
+        }
         if (Input.GetMouseButtonDown(0))
         {
             this.StartSlicing();

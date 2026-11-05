@@ -13,6 +13,7 @@ public class GameManager : Singleton<GameManager>
     [SerializeField] GameObject OpenPauseAndResume;
     [SerializeField] GameObject OpenPanel;
     [SerializeField] float arcadeDuration = 60f;
+    [SerializeField] Transform gameplayCamera;
 
     FruitNinjaUI ui;
     float timeRemaining;
@@ -31,10 +32,14 @@ public class GameManager : Singleton<GameManager>
     int bossHealth;
     float freezeRemaining;
     float eventRemaining;
+    float fruitRushRemaining;
     string eventMessage = string.Empty;
     bool bossActive;
     Renderer stageBackground;
     MaterialPropertyBlock stageBlock;
+    Vector3 cameraRestPosition;
+    float cameraShakeRemaining;
+    float cameraShakeStrength;
 
     public FruitGameMode Mode { get; private set; }
     public int Score => score;
@@ -63,11 +68,36 @@ public class GameManager : Singleton<GameManager>
         ui = FindAnyObjectByType<FruitNinjaUI>();
         if (blade == null) blade = FindAnyObjectByType<Blade>();
         if (spawner == null) spawner = FindAnyObjectByType<Spawner>();
+        if (gameplayCamera == null && Camera.main != null) gameplayCamera = Camera.main.transform;
+        if (gameplayCamera != null) cameraRestPosition = gameplayCamera.localPosition;
         GameObject background = GameObject.Find("BackGround");
         if (background != null) stageBackground = background.GetComponent<Renderer>();
         stageBlock = new MaterialPropertyBlock();
         if (Camera.main != null)
             MissLineY = Camera.main.ScreenToWorldPoint(new Vector3(0f, 0f, 0f)).y - 2f;
+    }
+
+    void LateUpdate()
+    {
+        if (gameplayCamera == null || cameraShakeRemaining <= 0f) return;
+        cameraShakeRemaining -= Time.unscaledDeltaTime;
+        if (cameraShakeRemaining <= 0f)
+        {
+            gameplayCamera.localPosition = cameraRestPosition;
+            cameraShakeStrength = 0f;
+            return;
+        }
+        float fade = cameraShakeRemaining / 0.14f;
+        float x = Mathf.PerlinNoise(Time.unscaledTime * 32f, 0f) * 2f - 1f;
+        float y = Mathf.PerlinNoise(0f, Time.unscaledTime * 32f) * 2f - 1f;
+        gameplayCamera.localPosition = cameraRestPosition + new Vector3(x, y, 0f) * cameraShakeStrength * fade;
+    }
+
+    void ShakeCamera(float strength)
+    {
+        if (gameplayCamera == null) return;
+        cameraShakeRemaining = 0.14f;
+        cameraShakeStrength = Mathf.Max(cameraShakeStrength, strength);
     }
 
     protected override void Start()
@@ -101,6 +131,7 @@ public class GameManager : Singleton<GameManager>
                 if (ui != null) ui.RefreshHud();
             }
         }
+        if (fruitRushRemaining > 0f) fruitRushRemaining -= Time.deltaTime;
         if (Mode == FruitGameMode.Arcade)
         {
             timeRemaining -= Time.deltaTime;
@@ -132,6 +163,7 @@ public class GameManager : Singleton<GameManager>
         bossActive = false;
         freezeRemaining = 0f;
         eventRemaining = 0f;
+        fruitRushRemaining = 0f;
         eventMessage = string.Empty;
         lives = 3;
         timeRemaining = mode == FruitGameMode.Arcade ? arcadeDuration : 0f;
@@ -145,8 +177,11 @@ public class GameManager : Singleton<GameManager>
         if (OpenPauseAndResume != null) OpenPauseAndResume.SetActive(false);
         if (OpenPanel != null) OpenPanel.SetActive(false);
         if (blade != null) blade.enabled = true;
-        if (spawner != null) spawner.enabled = true;
-        if (spawner != null) spawner.SetStage(1);
+        if (spawner != null)
+        {
+            spawner.ResetRun();
+            spawner.enabled = true;
+        }
         SetStageTheme(1);
         UpdateScoreText();
         if (ui != null)
@@ -162,14 +197,20 @@ public class GameManager : Singleton<GameManager>
         if (!isGameRunning || isGameOver) return;
         combo = Time.time - lastSliceTime <= 0.8f ? combo + 1 : 1;
         lastSliceTime = Time.time;
-        score += amount * Mathf.Min(combo, 5);
+        score += amount * Mathf.Min(combo, 5) * (fruitRushRemaining > 0f ? 2 : 1);
         if (combo >= 3 && combo % 3 == 0 && FruitNinjaAudio.Instance != null) FruitNinjaAudio.Instance.PlayCombo();
+        if (combo >= 3 && combo % 3 == 0) ShakeCamera(Mathf.Min(0.045f, 0.012f * combo));
         int bestStreak = PlayerPrefs.GetInt("FruitNinja_BestCombo_" + Mode, 0);
         if (combo > bestStreak) PlayerPrefs.SetInt("FruitNinja_BestCombo_" + Mode, combo);
         if (combo >= 10 && PlayerPrefs.GetInt("FruitNinja_Achievement_Combo10", 0) == 0)
         {
             PlayerPrefs.SetInt("FruitNinja_Achievement_Combo10", 1);
             if (FruitNinjaAudio.Instance != null) FruitNinjaAudio.Instance.PlayAchievement();
+        }
+        if (Mode != FruitGameMode.Zen && combo % 10 == 0 && lives < 5)
+        {
+            lives++;
+            AnnounceEvent("COMBO REWARD  +1 LIFE", 2.5f);
         }
         AdvanceProgression();
         UpdateScoreText();
@@ -262,12 +303,14 @@ public class GameManager : Singleton<GameManager>
     {
         if (!bossActive) return;
         bossHealth = Mathf.Max(0, bossHealth - 1);
+        ShakeCamera(0.018f);
         if (ui != null) ui.RefreshHud();
     }
 
     public void BossDefeated()
     {
         if (!bossActive) return;
+        ShakeCamera(0.06f);
         bossActive = false;
         score += 50;
         PlayerPrefs.SetInt("FruitNinja_Achievement_Boss", 1);
@@ -312,6 +355,12 @@ public class GameManager : Singleton<GameManager>
         AnnounceEvent("TIME FROZEN", duration);
     }
 
+    public void StartFruitRush(float duration)
+    {
+        fruitRushRemaining = Mathf.Max(fruitRushRemaining, duration);
+        AnnounceEvent("FRUIT RUSH  •  DOUBLE SCORE", duration);
+    }
+
     public void AnnounceEvent(string message, float duration = 3f)
     {
         eventMessage = message;
@@ -329,7 +378,10 @@ public class GameManager : Singleton<GameManager>
 
     public void Explode()
     {
+        combo = 0;
+        ShakeCamera(0.12f);
         if (Mode != FruitGameMode.Zen) LoseLife();
+        else if (ui != null) ui.RefreshHud();
     }
 
     public void MissedFruit()
@@ -389,6 +441,7 @@ public class GameManager : Singleton<GameManager>
         bossActive = false;
         eventMessage = string.Empty;
         eventRemaining = 0f;
+        fruitRushRemaining = 0f;
         if (blade != null) blade.enabled = false;
         if (spawner != null) spawner.enabled = false;
         if (ui != null) ui.ShowMainMenu();

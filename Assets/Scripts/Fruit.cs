@@ -96,7 +96,7 @@ public class Fruit : VanMonoBeha
 
     internal void TrySlice(Vector3 direction, Vector3 position, float force)
     {
-        if (isSliced || !GameManager.instance.IsGameRunning) return;
+        if (isSliced || !GameManager.instance.IsGameRunning || GameManager.instance.IsPaused) return;
         if (specialType == FruitSpecialType.Boss && bossHitsRemaining > 0 && Time.time - lastBossHitTime < 0.25f) return;
         if (FruitNinjaAudio.Instance != null) FruitNinjaAudio.Instance.PlaySlice();
         if (specialType == FruitSpecialType.Boss && bossHitsRemaining > 0)

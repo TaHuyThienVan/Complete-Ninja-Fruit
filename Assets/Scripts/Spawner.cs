@@ -79,7 +79,7 @@ public class Spawner : Singleton<Spawner>
 
                 if (stage >= 2 && Time.time >= nextEventTime)
                 {
-                    game.AnnounceEvent("FRUIT RUSH", 3f);
+                    game.StartFruitRush(3f);
                     SpawnOne(fruitPrefabs[Random.Range(0, fruitPrefabs.Length)], 1.15f, false, ChooseSpecial());
                     SpawnOne(fruitPrefabs[Random.Range(0, fruitPrefabs.Length)], 1.15f, false, ChooseSpecial());
                     nextEventTime = Time.time + Random.Range(18f, 26f);
@@ -94,6 +94,10 @@ public class Spawner : Singleton<Spawner>
 
     public void ResetRun()
     {
+        foreach (Fruit fruit in FindObjectsByType<Fruit>())
+            if (fruit.transform.root != transform.root) Destroy(fruit.transform.root.gameObject);
+        foreach (Bomb bomb in FindObjectsByType<Bomb>())
+            if (bomb.transform.root != transform.root) Destroy(bomb.transform.root.gameObject);
         stage = 1;
         sequenceActive = false;
         sequenceFruitInFlight = false;
