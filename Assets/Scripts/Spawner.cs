@@ -177,6 +177,17 @@ public class Spawner : Singleton<Spawner>
         else
         {
             Fruit fruit = spawned.GetComponentInChildren<Fruit>();
+            if (fruit == null)
+            {
+                Transform whole = spawned.transform.Find("Whole");
+                Transform sliced = spawned.transform.Find("Sliced");
+                if (whole != null && sliced != null)
+                {
+                    fruit = spawned.AddComponent<Fruit>();
+                    fruit.whole = whole.gameObject;
+                    fruit.sliced = sliced.gameObject;
+                }
+            }
             if (fruit != null)
             {
                 fruit.ConfigureSpecial(special);

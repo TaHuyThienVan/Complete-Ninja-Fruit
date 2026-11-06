@@ -2520,6 +2520,11 @@ MonoBehaviour:
   - {fileID: 2057169206081441129, guid: caacee40fad99bf448058d32cbf4002e, type: 3}
   - {fileID: 8900165417925301922, guid: f114644f944201a469b2679dbac37489, type: 3}
   - {fileID: 4665021690893771956, guid: c80c81ae0995cfd448c05884a1aee727, type: 3}
+  - {fileID: 100100000, guid: 24c43a9dd7ca1d040a8e18f84ffeff34, type: 3}
+  - {fileID: 100100000, guid: a110ac75f877d184e96cd1f46bff52f2, type: 3}
+  - {fileID: 100100000, guid: 3d6a6df64ec28dd47a129355806d974f, type: 3}
+  - {fileID: 100100000, guid: 84cc1f6518ad03c4a955871e1e7ec71f, type: 3}
+  - {fileID: 100100000, guid: d398f63c2e9b16f45be4b92d12cf6ab7, type: 3}
   boomPrefab: {fileID: 8749889065154936870, guid: 5d493010355d1ef439b732dc38d9ec24, type: 3}
   minSpawndelay: 0.25
   maxSpawndelay: 1
