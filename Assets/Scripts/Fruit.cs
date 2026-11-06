@@ -31,7 +31,12 @@ public class Fruit : VanMonoBeha
     {
         specialType = type;
         bossHitsRemaining = bossHits;
-        if (type == FruitSpecialType.Fake) transform.localScale *= 0.78f;
+        if (type == FruitSpecialType.Fake)
+        {
+            Vector3 size = fruitCollider != null ? fruitCollider.bounds.size : Vector3.zero;
+            float largestDimension = Mathf.Max(size.x, Mathf.Max(size.y, size.z));
+            transform.localScale *= Mathf.Min(0.78f, largestDimension > 0.01f ? 1.6f / largestDimension : 0.35f);
+        }
         if (type == FruitSpecialType.Normal || whole == null) return;
         Color tint = type == FruitSpecialType.Golden ? new Color(1f, 0.78f, 0.2f) :
                      type == FruitSpecialType.Frozen ? new Color(0.45f, 0.9f, 1f) :
