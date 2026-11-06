@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public enum FruitGameMode { Classic, Arcade, Zen }
+public enum FruitRunState { Menu, Playing, Paused, GameOver }
 
 public class GameManager : Singleton<GameManager>
 {
@@ -23,9 +24,7 @@ public class GameManager : Singleton<GameManager>
     int score;
     int combo;
     int lives;
-    bool isGameRunning;
-    bool isGameOver;
-    bool isPaused;
+    public FruitRunState State { get; private set; } = FruitRunState.Menu;
     int stage = 1;
     int sequenceStep = -1;
     int sequenceProgress;
@@ -54,8 +53,8 @@ public class GameManager : Singleton<GameManager>
     public int BossHealth => bossHealth;
     public string EventMessage => eventMessage;
     public float TimeRemaining => timeRemaining;
-    public bool IsGameRunning => isGameRunning;
-    public bool IsPaused => isPaused;
+    public bool IsGameRunning => State == FruitRunState.Playing || State == FruitRunState.Paused;
+    public bool IsPaused => State == FruitRunState.Paused;
     public int ElapsedSeconds => Mathf.FloorToInt(Time.time - runStartTime);
     public bool CanSpawnBomb => Mode != FruitGameMode.Zen;
     public float SpawnIntervalMultiplier => Mathf.Clamp(1f - score * 0.0015f, 0.45f, 1f);
@@ -116,7 +115,7 @@ public class GameManager : Singleton<GameManager>
 
     void Update()
     {
-        if (!isGameRunning || isPaused) return;
+        if (State != FruitRunState.Playing) return;
         if (freezeRemaining > 0f)
         {
             freezeRemaining -= Time.unscaledDeltaTime;
@@ -152,6 +151,7 @@ public class GameManager : Singleton<GameManager>
 
     public void BeginGame(FruitGameMode mode)
     {
+        if (State != FruitRunState.Playing && !TryTransition(FruitRunState.Playing)) return;
         Time.timeScale = 1f;
         Mode = mode;
         score = 0;
@@ -170,9 +170,6 @@ public class GameManager : Singleton<GameManager>
         runStartTime = Time.time;
         lastHudSecond = -1;
         lastSliceTime = -10f;
-        isGameRunning = true;
-        isGameOver = false;
-        isPaused = false;
         if (GameOverBackground != null) GameOverBackground.SetActive(false);
         if (OpenPauseAndResume != null) OpenPauseAndResume.SetActive(false);
         if (OpenPanel != null) OpenPanel.SetActive(false);
@@ -194,7 +191,7 @@ public class GameManager : Singleton<GameManager>
 
     public void IncreaseScore(int amount)
     {
-        if (!isGameRunning || isGameOver) return;
+        if (State != FruitRunState.Playing) return;
         combo = Time.time - lastSliceTime <= 0.8f ? combo + 1 : 1;
         lastSliceTime = Time.time;
         score += amount * Mathf.Min(combo, 5) * (fruitRushRemaining > 0f ? 2 : 1);
@@ -353,7 +350,7 @@ public class GameManager : Singleton<GameManager>
     public void ApplyFreeze(float duration)
     {
         freezeRemaining = Mathf.Max(freezeRemaining, duration);
-        if (!isPaused) Time.timeScale = 0.55f;
+        if (!IsPaused) Time.timeScale = 0.55f;
         AnnounceEvent("TIME FROZEN", duration);
     }
 
@@ -372,7 +369,7 @@ public class GameManager : Singleton<GameManager>
 
     public void DecreaseScore(int amount = 5)
     {
-        if (!isGameRunning || isGameOver) return;
+        if (State != FruitRunState.Playing) return;
         score = Mathf.Max(0, score - amount);
         UpdateScoreText();
         if (score == 0) GameOver();
@@ -388,7 +385,7 @@ public class GameManager : Singleton<GameManager>
 
     public void MissedFruit()
     {
-        if (!isGameRunning || isGameOver) return;
+        if (State != FruitRunState.Playing) return;
         combo = 0;
         if (SequenceActive) FailSequenceChallenge();
         if (Mode != FruitGameMode.Zen) LoseLife();
@@ -410,10 +407,7 @@ public class GameManager : Singleton<GameManager>
 
     public void GameOver()
     {
-        if (isGameOver) return;
-        isGameOver = true;
-        isGameRunning = false;
-        isPaused = false;
+        if (!TryTransition(FruitRunState.GameOver)) return;
         Time.timeScale = 1f;
         if (blade != null) blade.enabled = false;
         if (spawner != null) spawner.enabled = false;
@@ -434,10 +428,8 @@ public class GameManager : Singleton<GameManager>
 
     public void ReturnToMenu()
     {
+        if (!TryTransition(FruitRunState.Menu)) return;
         Time.timeScale = 1f;
-        isGameRunning = false;
-        isGameOver = false;
-        isPaused = false;
         freezeRemaining = 0f;
         sequenceStep = -1;
         bossActive = false;
@@ -454,22 +446,32 @@ public class GameManager : Singleton<GameManager>
     public void RestartGame() => SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     public void ExitGame() => Application.Quit();
     public void OpenPauseandResume() => PauseGame();
-    public void TogglePause() { if (isPaused) ResumeGame(); else PauseGame(); }
+    public void TogglePause() { if (State == FruitRunState.Paused) ResumeGame(); else PauseGame(); }
 
     public void PauseGame()
     {
-        if (!isGameRunning || isPaused) return;
+        if (!TryTransition(FruitRunState.Paused)) return;
         Time.timeScale = 0f;
-        isPaused = true;
         if (ui != null) ui.ShowPause();
     }
 
     public void ResumeGame()
     {
-        if (!isGameRunning || !isPaused) return;
+        if (State != FruitRunState.Paused || !TryTransition(FruitRunState.Playing)) return;
         Time.timeScale = freezeRemaining > 0f ? 0.55f : 1f;
-        isPaused = false;
         if (OpenPanel != null) OpenPanel.SetActive(false);
         if (ui != null) ui.ShowGameplay();
+    }
+
+    bool TryTransition(FruitRunState next)
+    {
+        if (State == next) return false;
+        bool allowed = next == FruitRunState.Menu ||
+                       next == FruitRunState.Playing && (State == FruitRunState.Menu || State == FruitRunState.Paused || State == FruitRunState.GameOver) ||
+                       next == FruitRunState.Paused && State == FruitRunState.Playing ||
+                       next == FruitRunState.GameOver && (State == FruitRunState.Playing || State == FruitRunState.Paused);
+        if (!allowed) return false;
+        State = next;
+        return true;
     }
 }

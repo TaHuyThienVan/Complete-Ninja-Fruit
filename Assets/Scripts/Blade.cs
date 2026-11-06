@@ -1,9 +1,11 @@
 using UnityEngine;
 
+public enum BladeState { Idle, Slicing }
+
 public class Blade : VanMonoBeha
 {
 
-    bool slicing;
+    public BladeState State { get; private set; } = BladeState.Idle;
     Vector3 lastPosition;
     Collider bladeCollider;
     SphereCollider bladeSphere;
@@ -52,7 +54,7 @@ public class Blade : VanMonoBeha
             Touch touch = Input.GetTouch(0);
             if (touch.phase == TouchPhase.Began) StartSlicing(touch.position);
             else if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled) StopSlicing();
-            else if (slicing) ContinueSlicing(touch.position);
+            else if (State == BladeState.Slicing) ContinueSlicing(touch.position);
             return;
         }
         if (Input.GetMouseButtonDown(0))
@@ -63,7 +65,7 @@ public class Blade : VanMonoBeha
         {
             this.StopSlicing();
         }
-        else if (slicing)
+        else if (State == BladeState.Slicing)
         {
             this.ContinueSlicing(Input.mousePosition);
         }
@@ -71,6 +73,7 @@ public class Blade : VanMonoBeha
     private void OnDisable()
     {
         StopAllCoroutines();
+        StopSlicing();
     }
     private void OnEnable()
     {
@@ -78,12 +81,13 @@ public class Blade : VanMonoBeha
     }
     void StartSlicing(Vector2 screenPosition)
     {
+        if (State != BladeState.Idle || mainCam == null || bladeCollider == null || bladeTrail == null) return;
         Vector3 newPosion = mainCam.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, 0f));
         newPosion.z = 0;
         transform.position = newPosion;
         lastPosition = newPosion;
 
-        this.slicing = true;
+        State = BladeState.Slicing;
         bladeCollider.enabled = true;
 
         if (FruitNinjaAudio.Instance != null) FruitNinjaAudio.Instance.PlayWhoosh();
@@ -93,14 +97,15 @@ public class Blade : VanMonoBeha
     }
     void StopSlicing()
     {
-        this.slicing = false;
-        bladeCollider.enabled = false;
-        this.bladeTrail.enabled = false;
+        State = BladeState.Idle;
+        if (bladeCollider != null) bladeCollider.enabled = false;
+        if (bladeTrail != null) bladeTrail.enabled = false;
 
 
     }
     void ContinueSlicing(Vector2 screenPosition)
     {
+        if (State != BladeState.Slicing) return;
         Vector3 previousPosition = transform.position;
         lastPosition = previousPosition;
         Vector3 newPosion = mainCam.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, 0f));
